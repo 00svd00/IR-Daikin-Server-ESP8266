@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<style>
+			body {
+				min-width: 310px;
+				max-width: 800px;
+				height: 400px;
+				margin: 0 auto;
+			}
+			h1 {
+				font-family: Arial;
+				text-align: center;
+			}
+			table {
+				width: 100%;
+				border: 0px;
+			}
+			input[type=range] {
+				width: 90%;
+				margin: 0;
+				height: 10vh;
+			}
+			option {
+				padding: 0;
+			}
+			td {
+				text-align: center;
+			}
+			button {
+				height:15vh;
+				width:30%;
+			}
+			input[type=checkbox] {
+				transform : scale(2);
+			}
+			input[type=radio] {
+				transform : scale(2);
+			}
+		</style>
+		<title>IR Daikin Server Workroom</title>							 
+	</head>
+	<body onload="restoredata()">
+		<h1>IR Daikin Server Workroom</h1>
+		<form method="POST" action="/cmd">
+			<button type="submit" id="poweron" onclick="setpoweron()" formaction="/cmd">
+				Power ON
+			</button>
+			<button type="submit" id="poweroff" onclick="setpoweroff()" formaction="/cmd">
+				Power OFF
+			</button>
+			<input type="hidden" id="power" name="power" value="0" />
+			<table>
+				<tbody>
+					<tr>
+						<td style="width: 90%;" >
+							<label for="temp">Temperature:</label><br />
+							<input id="temp" name="temp" type="range" value="26" min="18" max="32" step="1" />
+						</td>
+						<td style="width: 10%;" >
+							<p><output id="temp_value"></output>°C</p>
+						</td>
+						<script>
+							const temp_value = document.querySelector("#temp_value")
+							const temp_input = document.querySelector("#temp")
+							temp_value.textContent = temp_input.value
+							temp_input.addEventListener("input", (event) => {
+							temp_value.textContent = event.target.value
+							})
+						</script>
+					</tr>
+				</tbody>
+			</table>
+			<br>
+			<p style="text-align: center; margin-left:-10%;">Mode:</p>
+			<table>
+				<tbody>
+					<tr>
+						<td style="width: 20%;" >
+							<input type="radio" id="mode1" name="mode" value="3" checked />
+							<label for="mode1">Cool</label>
+						</td>
+						<td style="width: 20%;" >
+							<input type="radio" id="mode2" name="mode" value="2" />
+							<label for="mode2">Dry</label>
+						</td>
+						<td style="width: 20%;" >
+							<input type="radio" id="mode3" name="mode" value="6" />
+							<label for="mode3">Fan</label>
+						</td>
+						<td style="width: 20%;" >
+							<input type="radio" id="mode3" name="mode" value="4" />
+							<label for="mode3">Heat</label>
+						</td>
+						<td style="width: 20%;" >
+							<input type="radio" id="mode3" name="mode" value="0" />
+							<label for="mode3">Auto</label>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			<br>
+			<label for="fan" style="margin-left:40%;">Fan Speed:</label><br />
+			&nbsp;&nbsp;<input type="range" id="fan_input" value="6" min="1" max="6" list="values" />
+			<datalist id="values" style="display: flex; flex-direction: column; justify-content: space-between; writing-mode: vertical-lr; width: 90%;" >
+				<option value="1" label="slowest"></option>
+				<option value="2" label="slow"></option>
+				<option value="3" label="medium"></option>
+				<option value="4" label="fast"></option>
+				<option value="5" label="fastest"></option>
+				<option value="6" label="Auto"></option>
+			</datalist>
+			<input type="hidden" id="fan" name="fan" value="10" />
+			<br>
+			<table>
+				<tbody>
+					<tr>
+						<td style="width: 25%;" >
+							<input type="checkbox" id="powerfull_input" value="1" />
+							<label for="powerfull_input">Powerfull Mode</label>
+							<input type="hidden" id="powerfull" name="powerfull" value="0" />
+						</td>
+						<td style="width: 25%;" >
+							<input type="checkbox" id="quiet_input" value="1" />
+							<label for="quiet_input">Quiet Mode</label>
+							<input type="hidden" id="quiet" name="quiet" value="0" />
+						</td>
+						<td style="width: 25%;" >
+							<input type="checkbox" id="eco_input" value="1" />
+							<label for="eco_input">Eco+</label>
+							<input type="hidden" id="eco" name="eco" value="0" />
+						</td>
+						<td style="width: 25%;" >
+							<input type="checkbox" id="swingv_input" value="1" checked />
+							<label for="swingv_input">Swing</label>
+							<input type="hidden" id="swingv" name="swingv" value="0" />
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</form>
+		<br>
+		<br>
+		<br>
+		<table>
+			<tbody>
+				<tr>
+					<td style="width: 60%;" >
+						<input type="range" id="firmware" value="0" min="0" max="100" step="any" onmouseup="fw_input_reset()" ontouchend="fw_input_reset()" />
+						<input type="hidden" id="slider_old" value="0" />
+						<script>
+							const slider_old = document.querySelector("#slider_old")
+							const slider_cur = document.querySelector("#firmware")
+							slider_old.value = slider_cur.value
+							function fw_input_reset() {
+								if ( slider_cur.value < 100 ) {
+									slider_cur.value=0;
+									slider_old.value=0;
+								} else {
+									window.open('update');
+								}
+							}
+							slider_cur.addEventListener("input", (event) => {
+								if ( slider_cur.value-slider_old.value >= 5 ) {
+									slider_cur.value=0;
+									slider_old.value=0;
+								} else {
+									slider_old.value=slider_cur.value;
+								}
+							})
+						</script>
+					</td>
+					<td style="width: 40%;" >
+						<p>Update Firmware</p>
+					</td>
+				</tr>
+			</tbody>
+		<table>
+		<script>
+				const power = document.querySelector("#power")
+				const fan_input = document.querySelector("#fan_input")
+				const fan = document.querySelector("#fan")
+				const powerfull_input = document.querySelector("#powerfull_input")
+				const powerfull = document.querySelector("#powerfull")
+				const quiet_input = document.querySelector("#quiet_input")
+				const quiet = document.querySelector("#quiet")
+				const eco_input = document.querySelector("#eco_input")
+				const eco = document.querySelector("#eco")
+				const swingv_input = document.querySelector("#swingv_input")
+				const swingv = document.querySelector("#swingv")
+				function setpoweron() {
+					power.value = 1;
+					setfan();
+					setcheckbox();
+					savedata();
+				}
+				function setpoweroff() {
+					power.value = 0;
+					setfan();
+					setcheckbox();
+					savedata();
+				}
+				function setfan() {
+					fan.value = ( fan_input.value == 6)?10:fan_input.value;
+					}
+				function setcheckbox() {
+					powerfull.value = (powerfull_input.checked == true)?1:0;
+					quiet.value = (quiet_input.checked == true)?1:0;
+					eco.value = (eco_input.checked == true)?1:0;
+					swingv.value = (swingv_input.checked == true)?1:0;
+				}
+				function savedata(){
+					var mode = document.querySelector('input[name="mode"]:checked');
+					localStorage.setItem('temp', temp_input.value);
+					//console.log(temp_input.value);
+					localStorage.setItem('mode', mode.value);
+					//console.log(mode.value);
+					localStorage.setItem('fan', fan_input.value);
+					//console.log(fan_input.value);
+					localStorage.setItem('powerfull', powerfull.value);
+					//console.log(powerfull.value);
+					localStorage.setItem('quiet', quiet.value);
+					//console.log(quiet.value);
+					localStorage.setItem('eco', eco.value);
+					//console.log(eco.value);
+					localStorage.setItem('swingv', swingv.value);
+					//console.log(swingv.value);
+
+
+				}
+				function restoredata(){
+					if (localStorage.length != 0) {
+						console.log(localStorage.mode);
+						var mode = document.querySelector('input[name="mode"][value="'+localStorage.mode+'"]')
+						temp_input.value=localStorage.temp;
+						temp_value.textContent=temp_input.value;
+						mode.checked=true;
+						fan_input.value=localStorage.fan;
+						setfan();
+						powerfull.value=localStorage.powerfull;
+						powerfull_input.checked=(powerfull.value == 1)?true:false;
+						quiet.value=localStorage.quiet;
+						quiet_input.checked=(quiet.value == 1)?true:false;
+						eco.value=localStorage.eco;
+						eco_input.checked=(eco.value == 1)?true:false;
+						swingv.value=localStorage.swingv;
+						swingv_input.checked=(swingv.value == 1)?true:false;
+					}
+				}
+			</script>
+	</body>
+</html>

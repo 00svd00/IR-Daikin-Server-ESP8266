@@ -8,8 +8,7 @@
 *	- IRremote ESP8266 Library (https://github.com/markszabo/IRremoteESP8266)
 *
 */
-
-#include <EEPROM.h>
+#include <LittleFS.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPUpdateServer.h>
@@ -42,47 +41,6 @@ setting_t fan_speeds[6] = { { "Auto", DAIKIN_FAN_AUTO },{ "Slowest", 1 },{ "Slow
 setting_t modes[5] = { { "Cool", DAIKIN_COOL }, { "Heat", DAIKIN_HEAT }, { "Fan", DAIKIN_FAN }, { "Auto", DAIKIN_AUTO }, { "Dry", DAIKIN_DRY } };
 setting_t on_off[2] = { { "On", 1 }, { "Off", 0 } };
 
-void saveStatus() {
-	EEPROM_data data_new;
-	data_new.temp = daikinir.getTemp();
-	data_new.fan = daikinir.getFan();
-	data_new.power = daikinir.getPower();
-	data_new.powerful = daikinir.getPowerful();
-	data_new.quiet = daikinir.getQuiet();
-	data_new.swingh = daikinir.getSwingHorizontal();
-	data_new.swingv = daikinir.getSwingVertical();
-	data_new.mode = daikinir.getMode();
-	EEPROM.put(0, data_new);
-	EEPROM.commit();
-}
-
-void restoreStatus() {
-	EEPROM_data data_stored;
-	EEPROM.get(0, data_stored);
-	if (data_stored.power != NULL) {
-		daikinir.setTemp(data_stored.temp);
-		daikinir.setFan(data_stored.fan);
-		daikinir.setPower(data_stored.power);
-		daikinir.setPowerful(data_stored.powerful);
-		daikinir.setQuiet(data_stored.quiet);
-		daikinir.setSwingHorizontal(data_stored.swingh);
-		daikinir.setSwingVertical(data_stored.swingv);
-		daikinir.setMode(data_stored.mode);
-		daikinir.send();
-	} else {
-		daikinir.setTemp(25);
-		daikinir.setFan(2);
-		daikinir.setPower(0);
-		daikinir.setPowerful(0);
-		daikinir.setQuiet(0);
-		daikinir.setSwingHorizontal(0);
-		daikinir.setSwingVertical(0);
-		daikinir.setMode(DAIKIN_COOL);
-		daikinir.send();
-		saveStatus();
-	}
-}
-
 String getSelection(String name, int min, int max, int selected, setting_t* list) {
 	String ret = "<select name=\""+name+"\">";
 	for (int i = min; i <= max; i++) {
@@ -95,33 +53,7 @@ String getSelection(String name, int min, int max, int selected, setting_t* list
 }
 
 void handleRoot() {
-	String resp("");
-	resp += "<html>" \
-			"<head><title>IR Daikin Server</title></head>" \
-			"<body>" \
-			"<h1>IR Daikin Server</h1>" \
-			"<div><a href=\"update\">Update Firmware</a></div>" \
-			"<div><form method=\"POST\" action=\"cmd\">";
-	resp += "Power: " + getSelection("power", 0, 1, daikinir.getPower(), on_off);
-	resp += "Temperature: <select name=\"temp\">";
-	for (int i = DAIKIN_MIN_TEMP; i <= DAIKIN_MAX_TEMP; i++) {
-		resp += "<option ";
-		if (i == daikinir.getTemp())
-			resp += "selected ";
-		resp += ">" + String(i) + "</option>";
-	}
-	resp += "</select><br\>";
-	resp += "Mode: " + getSelection("mode", 0, 5, daikinir.getMode(), modes);
-	resp += "Fan speed: " + getSelection("fan", 0, 5, daikinir.getFan(), fan_speeds);
-	resp += "Powerful Mode: " + getSelection("powerful", 0, 1, daikinir.getPowerful(), on_off);
-	resp += "Quiet Mode: " + getSelection("quiet", 0, 1, daikinir.getQuiet(), on_off);
-	resp += "Horizontal Swing: " + getSelection("swingh", 0, 1, daikinir.getSwingHorizontal(), on_off);
-	resp += "Vertical Swing: " + getSelection("swingv", 0, 1, daikinir.getSwingVertical(), on_off);
-	resp += "<input type=\"submit\">" \
-			"</form></div>" \
-			"</body>" \
-			"</html>";
-	server.send(200, "text/html", resp);
+	handleFileRead("/index.html");
 }
 
 void handleCmd() {
@@ -135,6 +67,7 @@ void handleCmd() {
 		else if (argName == "power") { daikinir.setPower(arg); }
 		else if (argName == "powerful") { daikinir.setPowerful(arg); }
 		else if (argName == "quiet") { daikinir.setQuiet(arg); }
+		else if (argName == "eco") { daikinir.setEcono(arg); }
 		else if (argName == "swingh") { daikinir.setSwingHorizontal(arg); }
 		else if (argName == "swingv") { daikinir.setSwingVertical(arg); }
 		else if (argName == "mode") { daikinir.setMode(arg); }
@@ -142,21 +75,42 @@ void handleCmd() {
 		DEBUG_PRINT(" ");
 		DEBUG_PRINTLN(arg);
 	}
-	saveStatus();
 	daikinir.send();
 	handleRoot();
 }
 
-void handleNotFound() {
-	server.send(404, "text/plain", "404 File Not Found");
+String getContentType(String filename) { // convert the file extension to the MIME type
+  if (filename.endsWith(".html")) return "text/html";
+  else if (filename.endsWith(".css")) return "text/css";
+  else if (filename.endsWith(".js")) return "application/javascript";
+  else if (filename.endsWith(".ico")) return "image/x-icon";
+  return "text/plain";
+}
+
+bool handleFileRead(String path) {
+  Serial.println("handleFileRead: " + path);
+  if (path.endsWith("/")) path += "index.html";
+  String contentType = getContentType(path);
+  if (LittleFS.exists(path)) {
+    File file = LittleFS.open(path, "r");
+    size_t sent = server.streamFile(file, contentType);
+    file.close();
+    return true;
+  }
+  Serial.println("\tFile Not Found");
+  return false;                                        
 }
 
 void setup(void) {	
-	EEPROM.begin(EEPROM_SIZE);
 	DEBUG_BEGIN(115200);
 
 	daikinir.begin();
-	restoreStatus();
+
+	// Begin LittleFS
+  	if (!LittleFS.begin()) {
+    	Serial.println("An Error has occurred while mounting LittleFS");
+    	return;
+  	}
 
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, password);
@@ -175,7 +129,11 @@ void setup(void) {
 	server.on("/", handleRoot);
 	server.on("/cmd", handleCmd);
 
-	server.onNotFound(handleNotFound);
+	server.onNotFound([]() {
+    	if (!handleFileRead(server.uri())) {
+      		server.send(404, "text/plain", "404: Not Found");
+		}
+	});
 
 	httpUpdater.setup(&server);
 	server.begin();
